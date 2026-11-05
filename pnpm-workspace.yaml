@@ -1,0 +1,7 @@
+packages:
+  - .
+allowBuilds:
+  esbuild: true
+  msw: true
+minimumReleaseAgeExclude:
+  - "@internet-privacy/marmot-ts@0.9.0"
