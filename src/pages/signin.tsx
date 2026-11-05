@@ -1,26 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { JarMascot } from "@/components/kimchi/jar-mascot";
+import { useLang } from "@/lib/kimchi/i18n";
 import {
   connectExtensionAccount,
   createNewAccount,
   importAccount,
 } from "@/lib/accounts";
 import { DEFAULT_NEW_ACCOUNT_RELAYS } from "@/lib/settings";
+import "@/styles/kimchi.css";
 
 export function SignInPage() {
   const navigate = useNavigate();
+  const { lang, setLang, t } = useLang();
+  const [mode, setMode] = useState<"create" | "import">("create");
   const [connecting, setConnecting] = useState(false);
   const [name, setName] = useState("");
   const [relay, setRelay] = useState(DEFAULT_NEW_ACCOUNT_RELAYS.join(", "));
@@ -65,76 +59,123 @@ export function SignInPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Kimchi</CardTitle>
-          <CardDescription>
-            Private group tabs over Nostr (MLS) and ecash. Share the date, not
-            your data.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="create">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="create">New account</TabsTrigger>
-              <TabsTrigger value="import">Import key</TabsTrigger>
-            </TabsList>
+    <div className="kimchi-root kimchi-signin">
+      <div className="kimchi-card kimchi-signin-card">
+        <div className="kimchi-signin-header">
+          <JarMascot full />
+          <div className="kimchi-logo">{t("appName")}</div>
+          <p className="kimchi-signin-tagline">{t("tagline")}</p>
+          <p className="kimchi-signin-subtitle">{t("signInSubtitle")}</p>
+        </div>
 
-            <TabsContent value="create" className="space-y-3 pt-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Display name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Alice"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="relay">Home relay</Label>
-                <Input
-                  id="relay"
-                  value={relay}
-                  onChange={(e) => setRelay(e.target.value)}
-                />
-              </div>
-              <Button className="w-full" onClick={create}>
-                Generate identity
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="import" className="space-y-3 pt-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="secret">Private key (nsec or hex)</Label>
-                <Input
-                  id="secret"
-                  type="password"
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                  placeholder="nsec1…"
-                />
-              </div>
-              <Button
-                className="w-full"
-                onClick={importKey}
-                disabled={!secret.trim()}
-              >
-                Import
-              </Button>
-            </TabsContent>
-          </Tabs>
-          <Button
-            className="mt-3 w-full"
-            variant="outline"
-            disabled={connecting}
-            onClick={() => void connect()}
+        <div className="kimchi-signin-lang">
+          <button
+            type="button"
+            className="kimchi-ghost kimchi-small"
+            onClick={() => setLang(lang === "en" ? "ko" : "en")}
           >
-            {connecting ? "Connecting…" : "Connect Nostr extension"}
-          </Button>
-          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-        </CardContent>
-      </Card>
+            {t("language")}
+          </button>
+        </div>
+
+        <div className="kimchi-tabs">
+          <button
+            type="button"
+            className={`kimchi-tab-toggle${mode === "create" ? " is-active" : ""}`}
+            onClick={() => {
+              setMode("create");
+              setError(null);
+            }}
+          >
+            {t("newAccount")}
+          </button>
+          <button
+            type="button"
+            className={`kimchi-tab-toggle${mode === "import" ? " is-active" : ""}`}
+            onClick={() => {
+              setMode("import");
+              setError(null);
+            }}
+          >
+            {t("importKey")}
+          </button>
+        </div>
+
+        {mode === "create" ? (
+          <div className="kimchi-signin-body">
+            <label className="kimchi-field" htmlFor="name">
+              <span>{t("displayName")}</span>
+              <input
+                id="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t("displayNamePlaceholder")}
+                autoComplete="off"
+              />
+            </label>
+            <label className="kimchi-field" htmlFor="relay">
+              <span>{t("homeRelays")}</span>
+              <input
+                id="relay"
+                value={relay}
+                onChange={(event) => setRelay(event.target.value)}
+                placeholder="wss://relay.example.com"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <p className="kimchi-hint">{t("relayHint")}</p>
+            <button
+              type="button"
+              className="kimchi-button kimchi-wide"
+              onClick={create}
+            >
+              {t("generateIdentity")}
+            </button>
+          </div>
+        ) : (
+          <div className="kimchi-signin-body">
+            <label className="kimchi-field" htmlFor="secret">
+              <span>{t("privateKey")}</span>
+              <input
+                id="secret"
+                type="password"
+                value={secret}
+                onChange={(event) => setSecret(event.target.value)}
+                placeholder={t("privateKeyPlaceholder")}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <button
+              type="button"
+              className="kimchi-button kimchi-wide"
+              onClick={importKey}
+              disabled={!secret.trim()}
+            >
+              {t("import")}
+            </button>
+          </div>
+        )}
+
+        {error && <p className="kimchi-error">{error}</p>}
+
+        <div className="kimchi-signin-divider">
+          <span>{t("or")}</span>
+        </div>
+
+        <button
+          type="button"
+          className="kimchi-ghost kimchi-wide"
+          disabled={connecting}
+          onClick={() => void connect()}
+        >
+          {connecting ? t("connecting") : t("connectExtension")}
+        </button>
+
+        <p className="kimchi-signin-note">{t("signInNote")}</p>
+        <p className="kimchi-signin-footer">{t("signInFooter")}</p>
+      </div>
     </div>
   );
 }
