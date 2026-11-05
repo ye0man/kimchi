@@ -6,6 +6,8 @@ Kimchi is a private group tab. A group of people split a bill, settle in ecash, 
 
 Built for bitcoin++ Seoul, privacy edition. Forked from the `marmot-ts` web chat reference.
 
+**Live:** https://www.jakedat.com/kimchi/ · **Project page:** https://www.jakedat.com/projects/kimchi · **Source:** https://github.com/ye0man/kimchi
+
 ## What the demo shows
 
 1. Three people join one Marmot group. No phone number, no email, no signup.
@@ -36,6 +38,18 @@ pnpm dev
 Open `http://localhost:5173`.
 
 The default account relays are `relay.damus.io`, `nos.lol`, and `relay.primal.net`.
+
+## Deploy
+
+The hosted build is a subpath deployment at `https://www.jakedat.com/kimchi/`, served from the `jakedat.com` Astro site on Vercel.
+
+```powershell
+$env:VITE_BASE_PATH="/kimchi/"
+pnpm build
+Copy-Item -Recurse -Force dist\* ..\jakedat.com\public\kimchi\
+```
+
+`jakedat.com` holds the Astro site, the Kimchi project entry (`src/content/projects/kimchi.md`), and the built app in `public/kimchi/`. Vercel rewrites the app routes under `/kimchi/` to `index.html`, and the PWA scope is `/kimchi/`.
 
 ## Demo setup
 
