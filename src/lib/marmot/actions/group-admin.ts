@@ -13,6 +13,26 @@ import type { AppGroup, AppMarmotClient } from "@/lib/marmot/types";
 // but no one-call helpers for renaming, admin changes, member removal, media
 // policy, or an admin's leave (which must hand over the admin role first).
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 /**
  * Commit a name and/or description change (admin only).
  * @param client - The account's Marmot client.
@@ -132,6 +152,59 @@ export async function leaveGroup(
     });
   }
   await client.groups.leave(group.id);
+}
+
+/**
+ * Permanently disband a group for every member (admin only). Enables the
+ * lifecycle component first so older groups can still be deleted.
+ * @param client - The account's Marmot client.
+ * @param group - Group to disband.
+ * @throws When lifecycle support is missing, the caller is not an admin, or
+ * publication fails.
+ */
+export async function disbandGroup(
+  client: AppMarmotClient,
+  group: AppGroup,
+): Promise<void> {
+  requireActiveGroup(group);
+  requireAdmin(group, await client.signer.getPublicKey());
+
+  const enabled = await withTimeout(
+    group.enableDisbanding(),
+    20_000,
+    "Deleting is taking longer than expected. Check your relay connection, then try again.",
+  );
+  if (enabled.kind === "rejected") {
+    if (enabled.reason === "unsupportedMembers")
+      throw new Error(
+        "Some members use a client that cannot delete groups. Ask them to update Kimchi, or remove them first.",
+      );
+    if (enabled.reason === "notAdmin")
+      throw new Error("Only a group admin can delete this group.");
+    throw new Error(enabled.error);
+  }
+  if (enabled.kind === "publishFailed") throw new Error(enabled.error);
+
+  const result = await withTimeout(
+    group.disband(),
+    20_000,
+    "Deleting is taking longer than expected. Check your relay connection, then try again.",
+  );
+  switch (result.kind) {
+    case "acknowledged":
+    case "pending":
+      return;
+    case "failed":
+      throw new Error(`The group could not be deleted (${result.reason}).`);
+    case "rejected":
+      throw new Error(
+        result.reason === "notEnabled"
+          ? "This group cannot be deleted yet. Try again once every member has updated Kimchi."
+          : result.error,
+      );
+    case "publishFailed":
+      throw new Error(result.error);
+  }
 }
 
 /**

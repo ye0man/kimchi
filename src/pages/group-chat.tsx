@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, GitFork, Link2, Soup, UserPlus, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Bug,
+  Info,
+  Link2,
+  MoreVertical,
+  Soup,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { getGroupMembers } from "@internet-privacy/marmot-ts";
 
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -12,6 +22,14 @@ import { InviteDialog } from "@/components/marmot/invite-dialog";
 import { MembersDialog } from "@/components/marmot/members-dialog";
 import { GroupInfoDialog } from "@/components/marmot/group-info-dialog";
 import { ShareJoinDialog } from "@/components/marmot/share-join-dialog";
+import { DeleteGroupDialog } from "@/components/marmot/delete-group-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { recordGroupMembers } from "@/lib/contacts";
 import { retryFoundingWelcome } from "@/lib/marmot/actions/invites";
 import { useAction, useGroup, useMarmotAccount } from "@/hooks/use-marmot";
@@ -28,6 +46,7 @@ export function GroupChatPage() {
   const [share, setShare] = useState(false);
   const [members, setMembers] = useState(false);
   const [info, setInfo] = useState(false);
+  const [deleteGroup, setDeleteGroup] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -61,6 +80,9 @@ export function GroupChatPage() {
 
   const supported = group.profileSupport.kind === "supported";
   const canChat = supported && group.status === "active";
+  const isAdmin = Boolean(
+    account && (group.groupData?.adminPubkeys ?? []).includes(account.pubkey),
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -112,9 +134,6 @@ export function GroupChatPage() {
         >
           <UserPlus className="size-4" />
         </Button>
-        <Button size="icon" variant="ghost" onClick={() => setMembers(true)}>
-          <Users className="size-4" />
-        </Button>
         <Button
           size="icon"
           variant="ghost"
@@ -123,14 +142,41 @@ export function GroupChatPage() {
         >
           <Soup className="size-4" />
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => navigate(`/groups/${id}/debug`)}
-          title="Debug: fork graph & pending events"
-        >
-          <GitFork className="size-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              title="Group options"
+              aria-label="Group options"
+            >
+              <MoreVertical className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44 rounded-2xl">
+            <DropdownMenuItem onSelect={() => setInfo(true)}>
+              <Info /> Group info
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setMembers(true)}>
+              <Users /> Members
+            </DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => setDeleteGroup(true)}
+                >
+                  <Trash2 /> Delete group
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => navigate(`/groups/${id}/debug`)}>
+              <Bug /> Debug
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       {group.pendingWelcomes.length > 0 && (
@@ -191,6 +237,11 @@ export function GroupChatPage() {
       <InviteDialog groupId={id} open={invite} onOpenChange={setInvite} />
       <ShareJoinDialog groupId={id} open={share} onOpenChange={setShare} />
       <MembersDialog groupId={id} open={members} onOpenChange={setMembers} />
+      <DeleteGroupDialog
+        groupId={id}
+        open={deleteGroup}
+        onOpenChange={setDeleteGroup}
+      />
       <GroupInfoDialog groupId={id} open={info} onOpenChange={setInfo} />
     </div>
   );

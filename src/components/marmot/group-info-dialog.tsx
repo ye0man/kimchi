@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { getGroupMembers } from "@internet-privacy/marmot-ts";
+import { IconTrash } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CopyButton } from "@/components/copy-button";
+import { DeleteGroupDialog } from "@/components/marmot/delete-group-dialog";
 import { Jdenticon } from "@/components/jdenticon";
 import { useAction, useGroup, useMarmotAccount } from "@/hooks/use-marmot";
 import {
@@ -78,6 +80,7 @@ export function GroupInfoDialog({
     !(group?.groupData?.adminPubkeys ?? []).some((pubkey) => pubkey !== me);
 
   const [confirmRemoval, setConfirmRemoval] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [mediaServers, setMediaServers] = useState("");
@@ -135,139 +138,168 @@ export function GroupInfoDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Group info</DialogTitle>
-          <DialogDescription>
-            {isAdmin
-              ? "Edit this group's info or leave."
-              : "Only admins can edit this group's info."}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Group info</DialogTitle>
+            <DialogDescription>
+              {isAdmin
+                ? "Edit this group's info or leave."
+                : "Only admins can edit this group's info."}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <span className="size-12 shrink-0 overflow-hidden rounded-md bg-muted">
-              <Jdenticon value={group.idStr} size={48} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold">
-                {group.groupData?.name || group.idStr.slice(0, 8)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                epoch {epoch} · {memberCount} member
-                {memberCount === 1 ? "" : "s"}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="size-12 shrink-0 overflow-hidden rounded-md bg-muted">
+                <Jdenticon value={group.idStr} size={48} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">
+                  {group.groupData?.name || group.idStr.slice(0, 8)}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  epoch {epoch} · {memberCount} member
+                  {memberCount === 1 ? "" : "s"}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Group ID</Label>
-            <div className="flex items-center gap-2 rounded-md bg-muted p-2">
-              <code className="min-w-0 flex-1 truncate text-xs">
-                {group.idStr}
-              </code>
-              <CopyButton text={group.idStr} variant="ghost" size="icon" />
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Group ID</Label>
+              <div className="flex items-center gap-2 rounded-md bg-muted p-2">
+                <code className="min-w-0 flex-1 truncate text-xs">
+                  {group.idStr}
+                </code>
+                <CopyButton text={group.idStr} variant="ghost" size="icon" />
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="gi-name">Name</Label>
-            <Input
-              id="gi-name"
-              value={name}
-              disabled={!isAdmin}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="gi-desc">Description</Label>
-            <Textarea
-              id="gi-desc"
-              value={description}
-              disabled={!isAdmin}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          <div className="space-y-1.5 border-t pt-4">
-            <Label htmlFor="gi-media">Encrypted media (Blossom servers)</Label>
-            <p className="text-xs text-muted-foreground">
-              {mediaPolicy
-                ? "Members upload encrypted attachments to these servers, one per line."
-                : isAdmin
-                  ? "Add a Blossom server (one per line) to enable encrypted media for this group."
-                  : "Media is not enabled for this group."}
-            </p>
-            {(mediaPolicy || isAdmin) && (
-              <Textarea
-                id="gi-media"
-                value={mediaServers}
+            <div className="space-y-1.5">
+              <Label htmlFor="gi-name">Name</Label>
+              <Input
+                id="gi-name"
+                value={name}
                 disabled={!isAdmin}
-                onChange={(e) => setMediaServers(e.target.value)}
-                placeholder="https://blossom.example.com"
-                rows={2}
-                className="font-mono text-xs"
+                onChange={(e) => setName(e.target.value)}
               />
-            )}
-            {isAdmin && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={busy}
-                onClick={() => void saveMedia()}
-              >
-                {mediaPolicy ? "Update media servers" : "Enable media"}
-              </Button>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gi-desc">Description</Label>
+              <Textarea
+                id="gi-desc"
+                value={description}
+                disabled={!isAdmin}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-1.5 border-t pt-4">
+              <Label htmlFor="gi-media">
+                Encrypted media (Blossom servers)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {mediaPolicy
+                  ? "Members upload encrypted attachments to these servers, one per line."
+                  : isAdmin
+                    ? "Add a Blossom server (one per line) to enable encrypted media for this group."
+                    : "Media is not enabled for this group."}
+              </p>
+              {(mediaPolicy || isAdmin) && (
+                <Textarea
+                  id="gi-media"
+                  value={mediaServers}
+                  disabled={!isAdmin}
+                  onChange={(e) => setMediaServers(e.target.value)}
+                  placeholder="https://blossom.example.com"
+                  rows={2}
+                  className="font-mono text-xs"
+                />
+              )}
+              {isAdmin && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void saveMedia()}
+                >
+                  {mediaPolicy ? "Update media servers" : "Enable media"}
+                </Button>
+              )}
+            </div>
+
+            {supported && isAdmin && (
+              <div className="space-y-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-3">
+                <div className="flex items-center gap-2 text-sm font-black text-destructive">
+                  <IconTrash size={17} /> Delete this group
+                </div>
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Permanently remove this chat for everyone. If a tab is still
+                  open, you&apos;ll see a warning before deleting.
+                </p>
+                <Button
+                  variant="destructive"
+                  className="w-full rounded-full"
+                  disabled={busy}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Delete group for everyone
+                </Button>
+              </div>
             )}
           </div>
-        </div>
 
-        {!supported && (
-          <p className="text-sm text-muted-foreground">
-            This older group must be recreated. Removing it deletes its local
-            state and cached media from this device.
-          </p>
-        )}
-        {supported && isAdmin && (
-          <p className="text-sm text-muted-foreground">
-            {lastAdmin
-              ? "Promote another member in Members before leaving."
-              : "Leaving will first remove your admin role."}
-          </p>
-        )}
-        {supported && (
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => void retry.run()}
-          >
-            Retry pending changes
-          </Button>
-        )}
-        <DialogFooter className="justify-between sm:justify-between">
-          <Button
-            variant="destructive"
-            disabled={busy || lastAdmin}
-            onClick={() => void leave()}
-          >
-            {busy
-              ? "Working…"
-              : supported
-                ? "Leave group"
-                : confirmRemoval
-                  ? "Confirm delete local group data"
-                  : "Remove local group data"}
-          </Button>
-          {isAdmin && (
-            <Button disabled={busy} onClick={() => void save()}>
-              {busy ? "Saving…" : "Save"}
+          {!supported && (
+            <p className="text-sm text-muted-foreground">
+              This older group must be recreated. Removing it deletes its local
+              state and cached media from this device.
+            </p>
+          )}
+          {supported && isAdmin && (
+            <p className="text-sm text-muted-foreground">
+              {lastAdmin
+                ? "Promote another member in Members before leaving."
+                : "Leaving will first remove your admin role."}
+            </p>
+          )}
+          {supported && (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => void retry.run()}
+            >
+              Retry pending changes
             </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="justify-between sm:justify-between">
+            <Button
+              variant="outline"
+              disabled={busy || lastAdmin}
+              onClick={() => void leave()}
+            >
+              {busy
+                ? "Working…"
+                : supported
+                  ? "Leave group"
+                  : confirmRemoval
+                    ? "Confirm delete local group data"
+                    : "Remove local group data"}
+            </Button>
+            {isAdmin && (
+              <Button disabled={busy} onClick={() => void save()}>
+                {busy ? "Saving…" : "Save"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <DeleteGroupDialog
+        groupId={groupId}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+      />
+    </>
   );
 }
