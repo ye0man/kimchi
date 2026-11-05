@@ -19,7 +19,8 @@ function fixture() {
   const directory = {
     add: vi.fn((_event: NostrEvent) => true),
     close: vi.fn(),
-    welcomeInboxes: vi.fn(async () => []),
+    welcomeInboxes: vi.fn(async (): Promise<string[]> => []),
+    outboxes: vi.fn(async (): Promise<string[]> => []),
   };
   const network = new MarmotNetwork(
     pool as unknown as RelayPool,
@@ -140,6 +141,15 @@ describe("web Nostr adapter", () => {
   it("does not substitute our bootstrap relays for another user's missing inbox", async () => {
     const { network } = fixture();
     expect(await network.getUserInboxRelays("11".repeat(32))).toEqual([]);
+    network.close();
+  });
+
+  it("falls back to the recipient's outbox when their inbox is missing", async () => {
+    const { directory, network } = fixture();
+    directory.outboxes.mockResolvedValue(["wss://outbox.test"]);
+    expect(await network.getUserInboxRelays("11".repeat(32))).toEqual([
+      "wss://outbox.test/",
+    ]);
     network.close();
   });
 

@@ -189,13 +189,14 @@ describe("account runtime and actions", () => {
     await expect(account.start()).rejects.toThrow("stopped");
   });
 
-  it("re-listens for invites only when the inbox list changes", async () => {
+  it("re-listens for invites when either relay list changes", async () => {
     const { account, client } = fixture({ packages: [pkg()] });
     await account.start();
-    // Startup listens on the (empty) inbox, then on the discovered one.
+    // Startup listens on the discovered inbox and outbox.
     await vi.waitFor(() =>
       expect(client.invites.listen).toHaveBeenLastCalledWith([
         "wss://inbox.test/",
+        "wss://outbox.test/",
       ]),
     );
     const calls = client.invites.listen.mock.calls.length;
@@ -205,6 +206,13 @@ describe("account runtime and actions", () => {
     expect(client.invites.listen).toHaveBeenCalledTimes(calls + 1);
     expect(client.invites.listen).toHaveBeenLastCalledWith([
       "wss://other.test/",
+      "wss://outbox.test/",
+    ]);
+    account.outboxRelays$.next(["wss://other-outbox.test"]);
+    expect(client.invites.listen).toHaveBeenCalledTimes(calls + 2);
+    expect(client.invites.listen).toHaveBeenLastCalledWith([
+      "wss://other.test/",
+      "wss://other-outbox.test/",
     ]);
   });
 

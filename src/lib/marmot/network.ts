@@ -1,5 +1,6 @@
 import type { NostrEvent } from "applesauce-core/helpers/event";
 import type { Filter } from "applesauce-core/helpers/filter";
+import { relaySet } from "applesauce-core/helpers/relays";
 import type { RelayPool as AsRelayPool } from "applesauce-relay/pool";
 import type {
   NostrNetworkInterface,
@@ -129,12 +130,14 @@ export class MarmotNetwork implements NostrNetworkInterface {
 
   async getUserInboxRelays(pubkey: string): Promise<string[]> {
     if (this.#closed) throw new Error("Account connection is closed");
-    const relays = await this.#directory.welcomeInboxes(
-      pubkey,
-      this.defaultRelays,
-    );
-    // A Welcome must reach the recipient's advertised inbox, not our bootstrap relays.
-    return relays;
+    const [inbox, outbox] = await Promise.all([
+      this.#directory.welcomeInboxes(pubkey, this.defaultRelays),
+      this.#directory.outboxes(pubkey, this.defaultRelays),
+    ]);
+    // Deliver to the advertised inbox when it is known. Fall back to the
+    // recipient's NIP-65 outbox — never our bootstrap relays — so an account
+    // that has not published kind 10050 can still receive its Welcome.
+    return relaySet(inbox, outbox);
   }
 
   get relayCount(): number {

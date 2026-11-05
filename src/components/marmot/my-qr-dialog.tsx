@@ -11,6 +11,7 @@ import {
 import { CopyButton } from "@/components/copy-button";
 import { QRImage } from "@/components/qr-image";
 import { useKeyPackages, useMarmotAccount } from "@/hooks/use-marmot";
+import { selectDeviceKeyPackage } from "@/lib/marmot/key-packages";
 
 /**
  * Shows the account's npub as a scannable QR code. Other Marmot/Nostr apps can
@@ -31,10 +32,12 @@ export function MyQrDialog({
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const current =
-    packages.find((pkg) => pkg.identifier === account?.clientId) ??
-    packages.find((pkg) => (pkg.published?.length ?? 0) > 0);
-  const keyPackage = current?.published?.[0];
+  const current = account
+    ? selectDeviceKeyPackage(packages, account.clientId)
+    : undefined;
+  const keyPackage = current?.published?.length
+    ? [...current.published].sort((a, b) => b.created_at - a.created_at)[0]
+    : undefined;
 
   const publish = async () => {
     if (!account) return;
@@ -92,6 +95,13 @@ export function MyQrDialog({
                 into the host&apos;s <strong>Invite</strong> dialog under{" "}
                 <strong>Paste a key package instead</strong>.
               </p>
+              {current?.used && (
+                <p className="text-xs text-destructive">
+                  This package was already used by an earlier invite. Rotate it
+                  in <strong>Settings → Key packages</strong>, then copy the new
+                  one.
+                </p>
+              )}
               <Button
                 variant="outline"
                 size="sm"

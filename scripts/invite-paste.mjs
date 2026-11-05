@@ -1,6 +1,6 @@
 import { chromium } from "playwright-core";
 
-const BASE = "http://127.0.0.1:5173";
+const BASE = process.env.KIMCHI_BASE ?? "http://127.0.0.1:5173";
 const RELAYS = "wss://relay.damus.io, wss://nos.lol, wss://relay.primal.net";
 
 const browser = await chromium.launch({ channel: "msedge", headless: true });

@@ -8,6 +8,7 @@ import {
   BehaviorSubject,
   Observable,
   Subscription,
+  combineLatest,
   distinctUntilChanged,
   map,
   switchMap,
@@ -266,12 +267,12 @@ export class MarmotAccount {
     }
   }
 
-  /** Re-subscribe to gift-wrapped invites whenever the inbox list changes. */
+  /** Re-subscribe to gift-wrapped invites whenever either relay list changes. */
   #listenForInvites(): void {
     this.#subscriptions.add(
-      this.inboxRelays$
+      combineLatest([this.inboxRelays$, this.outboxRelays$])
         .pipe(
-          map((relays) => relaySet(relays)),
+          map(([inbox, outbox]) => relaySet(inbox, outbox)),
           distinctUntilChanged((a, b) => a.join(",") === b.join(",")),
           switchMap(
             (relays) =>
