@@ -22,6 +22,7 @@ import {
   saveSecrets,
 } from "@/lib/kimchi/cashu";
 import { useLang } from "@/lib/kimchi/i18n";
+import { mintCaps, tabMintProblems } from "@/lib/kimchi/mint";
 import {
   fiatToSats,
   formatKrw,
@@ -87,6 +88,7 @@ export function KimchiTabPage() {
     .reduce((sum, share) => sum + share.amount_sats, 0);
   const closed =
     Boolean(closing) || (group ? group.status !== "active" : false);
+  const caps = wallet.wallet ? mintCaps(wallet.wallet) : null;
   const walletLog = wallet.history
     .slice(0, 8)
     .map(
@@ -109,6 +111,9 @@ export function KimchiTabPage() {
     setCreating(true);
     setError(null);
     try {
+      if (!wallet.wallet) throw new Error("Wallet is still loading.");
+      const problems = tabMintProblems(mintCaps(wallet.wallet));
+      if (problems.length) throw new Error(problems.join(" "));
       const rate = await fetchKrwPerBtc();
       const totalSats = fiatToSats(total, rate);
       const groupMembers = [...new Set(getGroupMembers(group.state))];
@@ -416,6 +421,20 @@ export function KimchiTabPage() {
               onChange={(event) => setMint(event.target.value)}
             />
           </label>
+
+          {caps ? (
+            <p
+              className={`kimchi-hint ${
+                caps.p2pk && caps.proofState ? "" : "kimchi-error"
+              }`}
+            >
+              {caps.p2pk ? "NUT-11 P2PK ✓" : "NUT-11 P2PK missing"} ·{" "}
+              {caps.proofState ? "NUT-07 ✓" : "NUT-07 missing"} · NUT-18
+              requests ✓
+            </p>
+          ) : (
+            <p className="kimchi-hint">Checking mint capabilities…</p>
+          )}
 
           <p className="kimchi-hint">
             {formatKrw(total)} ≈{" "}

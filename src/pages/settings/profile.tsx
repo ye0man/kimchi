@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user";
+import { mascotName } from "@/components/kimchi/food-mascots";
 import { MyQrDialog } from "@/components/marmot/my-qr-dialog";
 import { accounts } from "@/lib/accounts";
 import { useAction } from "@/hooks/use-marmot";
@@ -38,6 +39,14 @@ export function ProfileSettings() {
           <FieldGroup>
             <div className="flex items-center gap-3">
               <UserAvatar pubkey={account.pubkey} size={48} />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-black">
+                  {mascotName(account.pubkey)}
+                </div>
+                <p className="text-[11px] font-semibold text-muted-foreground">
+                  Your default food avatar. Add a Picture URL to override it.
+                </p>
+              </div>
               <Button
                 variant="outline"
                 size="sm"

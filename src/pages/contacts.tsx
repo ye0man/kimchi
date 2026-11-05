@@ -1,9 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
+  IconBookmark,
+  IconClock,
+  IconDotsVertical,
+  IconMessageCircle,
   IconQrcode,
   IconSearch,
   IconSend,
+  IconTrash,
   IconUserPlus,
 } from "@tabler/icons-react";
 import { normalizeToPubkey } from "applesauce-core/helpers";
@@ -20,19 +25,194 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useGroups, useMarmotAccount } from "@/hooks/use-marmot";
-import { useContacts } from "@/lib/contacts";
-import { upsertContacts } from "@/lib/contacts";
+import { useProfile } from "@/hooks/use-profile";
+import {
+  dismissContact,
+  pruneRecentContacts,
+  saveContact,
+  updateContactProfile,
+  upsertContacts,
+  useContacts,
+  type Contact,
+} from "@/lib/contacts";
 import { createGroup, inviteKeyPackages } from "@/lib/marmot/actions/invites";
 import { describeInviteCandidate } from "@/lib/marmot/invitations";
-import type { Contact } from "@/lib/contacts";
+
+const RECENT_TTL_MS = 24 * 3_600_000;
+
+function hoursLeft(contact: Contact, now: number): number {
+  return Math.max(
+    1,
+    Math.ceil((contact.lastSeen + RECENT_TTL_MS - now) / 3_600_000),
+  );
+}
+
+function ContactRow({
+  contact,
+  now,
+  groups,
+  busy,
+  onStartChat,
+  onInvite,
+}: {
+  contact: Contact;
+  now: number;
+  groups: number;
+  busy: boolean;
+  onStartChat: (contact: Contact) => void;
+  onInvite: (contact: Contact) => void;
+}) {
+  const account = useMarmotAccount();
+  const profile = useProfile(contact.pubkey);
+
+  useEffect(() => {
+    if (!account) return;
+    const name = profile?.display_name || profile?.name;
+    if (
+      (name && name !== contact.name) ||
+      (profile?.picture && profile.picture !== contact.picture)
+    ) {
+      updateContactProfile(account.pubkey, contact.pubkey, {
+        name,
+        picture: profile.picture,
+      });
+    }
+  }, [
+    account,
+    contact.pubkey,
+    contact.name,
+    contact.picture,
+    profile?.display_name,
+    profile?.name,
+    profile?.picture,
+  ]);
+
+  const goodbye = () => {
+    if (!account) return;
+    const name = contact.name ?? contact.pubkey.slice(0, 10);
+    if (
+      window.confirm(
+        `Say goodbye to ${name}? They will be removed from your history and won't be added back automatically.`,
+      )
+    ) {
+      dismissContact(account.pubkey, contact.pubkey);
+    }
+  };
+
+  const keep = () => {
+    if (!account) return;
+    saveContact(account.pubkey, contact.pubkey);
+  };
+
+  const remove = () => {
+    if (!account) return;
+    const name = contact.name ?? contact.pubkey.slice(0, 10);
+    if (window.confirm(`Remove ${name} from your contacts?`)) {
+      dismissContact(account.pubkey, contact.pubkey);
+    }
+  };
+
+  return (
+    <div className="kimchi-surface kimchi-card-lift flex flex-col gap-2 p-2.5">
+      <div className="flex items-center gap-3">
+        <UserAvatar pubkey={contact.pubkey} size={42} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <UserName
+              pubkey={contact.pubkey}
+              className="truncate text-sm font-black"
+            />
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black tracking-[0.08em] uppercase ${
+                contact.saved
+                  ? "bg-kimchi-green/15 text-kimchi-green-dark"
+                  : "bg-amber-100 text-amber-800"
+              }`}
+            >
+              {contact.saved ? "Saved" : "Recent"}
+            </span>
+          </div>
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+            {!contact.saved && <IconClock size={12} />}
+            {!contact.saved
+              ? `Expires in ${hoursLeft(contact, now)}h`
+              : "Kept in your contacts"}
+            {groups > 0 &&
+              ` · ${groups} shared table${groups === 1 ? "" : "s"}`}
+          </span>
+        </div>
+
+        {contact.saved ? (
+          <Button
+            size="sm"
+            className="rounded-full"
+            disabled={busy}
+            onClick={() => onStartChat(contact)}
+          >
+            <IconMessageCircle className="size-4" /> Chat
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            className="rounded-full"
+            disabled={busy}
+            onClick={keep}
+          >
+            <IconBookmark className="size-4" /> Keep
+          </Button>
+        )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Contact options"
+              title="Contact options"
+            >
+              <IconDotsVertical className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44 rounded-2xl">
+            {contact.saved && (
+              <DropdownMenuItem onSelect={() => onStartChat(contact)}>
+                <IconMessageCircle /> Chat
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => onInvite(contact)}>
+              <IconSend /> Invite to a table
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {contact.saved ? (
+              <DropdownMenuItem variant="destructive" onSelect={remove}>
+                <IconTrash /> Remove contact
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem variant="destructive" onSelect={goodbye}>
+                <IconTrash /> Say goodbye
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+}
 
 /** Address book for finding people and one-tap re-inviting. */
 export function ContactsPage() {
   const account = useMarmotAccount();
   const contacts = useContacts(account?.pubkey);
-  const groups = useGroups() ?? [];
+  const allGroups = useGroups() ?? [];
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [input, setInput] = useState("");
@@ -41,6 +221,23 @@ export function ContactsPage() {
   const [error, setError] = useState<string | null>(null);
   const [inviteTarget, setInviteTarget] = useState<Contact | null>(null);
   const [inviteGroup, setInviteGroup] = useState("");
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!account) return;
+    const tick = () => {
+      pruneRecentContacts(account.pubkey);
+      setNow(Date.now());
+    };
+    tick();
+    const id = setInterval(tick, 15 * 60_000);
+    return () => clearInterval(id);
+  }, [account]);
+
+  const groupsById = useMemo(
+    () => new Map(allGroups.map((group) => [group.idStr, group])),
+    [allGroups],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -72,7 +269,7 @@ export function ContactsPage() {
     try {
       const pubkey = await resolve(input);
       if (!pubkey) throw new Error("Enter an npub, hex key, or name@domain.");
-      upsertContacts(account.pubkey, [{ pubkey }]);
+      upsertContacts(account.pubkey, [{ pubkey, saved: true, explicit: true }]);
       setInput("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -118,7 +315,7 @@ export function ContactsPage() {
 
   const sendInvite = async () => {
     if (!account || !inviteTarget || !inviteGroup) return;
-    const group = groups.find((entry) => entry.idStr === inviteGroup);
+    const group = groupsById.get(inviteGroup);
     if (!group) return;
     setBusy(inviteTarget.pubkey);
     setError(null);
@@ -165,7 +362,7 @@ export function ContactsPage() {
     try {
       const pubkey = await resolve(value);
       if (!pubkey) throw new Error("That code is not a Kimchi contact.");
-      upsertContacts(account.pubkey, [{ pubkey }]);
+      upsertContacts(account.pubkey, [{ pubkey, saved: true, explicit: true }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -179,7 +376,7 @@ export function ContactsPage() {
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-black">Contacts</h1>
           <p className="text-[11px] font-bold text-muted-foreground">
-            Find people once. Invite them in a tap.
+            Keep the people you want. Everyone else fades in a day.
           </p>
         </div>
         <Button
@@ -237,49 +434,26 @@ export function ContactsPage() {
               <p className="text-sm font-black">No contacts yet</p>
               <p className="max-w-xs text-xs text-muted-foreground">
                 Add a friend&apos;s npub or scan their invite card. People you
-                share a table with show up here automatically.
+                share a table with appear here for a day unless you keep them.
               </p>
             </div>
           ) : (
             <div className="space-y-2">
               {filtered.map((contact) => (
-                <div
+                <ContactRow
                   key={contact.pubkey}
-                  className="kimchi-surface kimchi-card-lift flex items-center gap-3 p-2.5"
-                >
-                  <UserAvatar pubkey={contact.pubkey} size={42} />
-                  <div className="min-w-0 flex-1">
-                    <UserName
-                      pubkey={contact.pubkey}
-                      className="block truncate text-sm font-black"
-                    />
-                    <span className="block truncate text-[11px] font-semibold text-muted-foreground">
-                      {contact.groups.length
-                        ? `${contact.groups.length} shared table${contact.groups.length === 1 ? "" : "s"}`
-                        : contact.pubkey.slice(0, 16) + "…"}
-                    </span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full"
-                    disabled={busy === contact.pubkey}
-                    onClick={() => {
-                      setInviteTarget(contact);
-                      setInviteGroup(groups[0]?.idStr ?? "");
-                    }}
-                  >
-                    <IconSend className="size-4" /> Invite
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="rounded-full"
-                    disabled={busy === contact.pubkey}
-                    onClick={() => void startChat(contact)}
-                  >
-                    Chat
-                  </Button>
-                </div>
+                  contact={contact}
+                  now={now}
+                  groups={
+                    contact.groups.filter((id) => groupsById.has(id)).length
+                  }
+                  busy={busy === contact.pubkey}
+                  onStartChat={(target) => void startChat(target)}
+                  onInvite={(target) => {
+                    setInviteTarget(target);
+                    setInviteGroup(allGroups[0]?.idStr ?? "");
+                  }}
+                />
               ))}
             </div>
           )}
@@ -308,12 +482,12 @@ export function ContactsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            {groups.length === 0 && (
+            {allGroups.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 Create or join a group first.
               </p>
             )}
-            {groups.map((group) => (
+            {allGroups.map((group) => (
               <button
                 key={group.idStr}
                 type="button"

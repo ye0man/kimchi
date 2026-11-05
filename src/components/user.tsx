@@ -1,6 +1,8 @@
+import { useState } from "react";
+
 import { cn } from "@/lib/utils";
 import { useDisplayName, useProfile } from "@/hooks/use-profile";
-import { Jdenticon } from "./jdenticon";
+import { FoodMascot } from "@/components/kimchi/food-mascots";
 
 /** Reactive display name for a pubkey. */
 export function UserName({
@@ -14,7 +16,7 @@ export function UserName({
   return <span className={className}>{name}</span>;
 }
 
-/** Reactive avatar for a pubkey (picture if known, jdenticon fallback). */
+/** Reactive avatar for a pubkey (picture if known, food mascot fallback). */
 export function UserAvatar({
   pubkey,
   size = 32,
@@ -25,11 +27,12 @@ export function UserAvatar({
   className?: string;
 }) {
   const profile = useProfile(pubkey);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const rounded = cn(
     "rounded-full overflow-hidden shrink-0 bg-muted",
     className,
   );
-  if (profile?.picture) {
+  if (profile?.picture && profile.picture !== failedSrc) {
     return (
       <img
         src={profile.picture}
@@ -38,12 +41,13 @@ export function UserAvatar({
         height={size}
         className={rounded}
         style={{ width: size, height: size, objectFit: "cover" }}
+        onError={() => setFailedSrc(profile.picture!)}
       />
     );
   }
   return (
     <span className={rounded} style={{ width: size, height: size }}>
-      <Jdenticon value={pubkey} size={size} />
+      <FoodMascot seed={pubkey} size={size} />
     </span>
   );
 }

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useMarmotAccount } from "@/hooks/use-marmot";
 import { MINIBITS_MINT } from "@/lib/kimchi/cashu";
+import { mintCaps } from "@/lib/kimchi/mint";
 import { formatSats } from "@/lib/kimchi/rate";
 import { useAccountWallet } from "@/lib/wallet/use-wallet";
 import { loadMint, saveMint, type WalletTx } from "@/lib/wallet/storage";
@@ -43,6 +44,7 @@ export function WalletPage() {
   );
   const [mintDraft, setMintDraft] = useState(mint);
   const wallet = useAccountWallet(account?.pubkey, mint);
+  const caps = wallet.wallet ? mintCaps(wallet.wallet) : null;
   const [panel, setPanel] = useState<Panel>(null);
   const [amount, setAmount] = useState(5_000);
   const [token, setToken] = useState("");
@@ -258,6 +260,31 @@ export function WalletPage() {
               Balances are stored per account and mint. Use a mint that supports
               NUT-11 P2PK for tab payments.
             </p>
+            {caps && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                    caps.p2pk
+                      ? "bg-kimchi-green/15 text-kimchi-green-dark"
+                      : "bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {caps.p2pk ? "NUT-11 P2PK ✓" : "NUT-11 P2PK missing"}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                    caps.proofState
+                      ? "bg-kimchi-green/15 text-kimchi-green-dark"
+                      : "bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {caps.proofState ? "NUT-07 ✓" : "NUT-07 missing"}
+                </span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
+                  NUT-18 requests ✓
+                </span>
+              </div>
+            )}
           </section>
 
           <section className="space-y-1.5">
