@@ -77,7 +77,11 @@ export class KeyPackageDiscovery {
     ]);
     const searchRelays = discovered.length
       ? relaySet(discovered, identityRelays, this.#options.relays)
-      : relaySet(identityRelays, this.#options.relays);
+      : relaySet(
+          identityRelays,
+          this.#options.relays,
+          this.#options.lookupRelays(),
+        );
     this.#options.log(
       discovered.length
         ? `searching ${npubShort(pubkeyHex)}'s outbox relays for key packages`
@@ -85,17 +89,31 @@ export class KeyPackageDiscovery {
       discovered.length ? "info" : "warn",
     );
     onProgress?.(`Fetching key packages from ${searchRelays.length} relay(s)…`);
-    const kps = await this.#options.network.request(
-      searchRelays,
-      {
-        kinds: [ADDRESSABLE_KEY_PACKAGE_KIND],
-        authors: [pubkeyHex],
-      },
-      { waitForAuth: false },
-    );
+    const query = () =>
+      this.#options.network.request(
+        searchRelays,
+        {
+          kinds: [ADDRESSABLE_KEY_PACKAGE_KIND],
+          authors: [pubkeyHex],
+        },
+        { waitForAuth: false },
+      );
+    let kps = await query();
+    // A freshly-created device may still be publishing its first package when
+    // the host searches. Retry briefly before giving up.
+    for (let attempt = 0; !kps.length && attempt < 3; attempt++) {
+      onProgress?.(
+        `Waiting for ${npubShort(pubkeyHex)} to publish a key package…`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+      this.#options.signal.throwIfAborted();
+      kps = await query();
+    }
     this.#options.signal.throwIfAborted();
     if (!kps.length) {
-      throw new Error(`no KeyPackage found for ${npubShort(pubkeyHex)}`);
+      throw new Error(
+        `No key package found for ${npubShort(pubkeyHex)}. Make sure the other device is online and has opened Kimchi once, or paste its key package below.`,
+      );
     }
 
     // The shared EventStore owns NIP-01 replacement/tie-breaking semantics.

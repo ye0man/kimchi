@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,10 +28,45 @@ export function MyQrDialog({
 }) {
   const account = useMarmotAccount();
   const packages = useKeyPackages();
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const current =
     packages.find((pkg) => pkg.identifier === account?.clientId) ??
     packages.find((pkg) => (pkg.published?.length ?? 0) > 0);
   const keyPackage = current?.published?.[0];
+
+  const publish = async () => {
+    if (!account) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      await account.ensureKeyPackage();
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || !account) return;
+    let active = true;
+    setPublishing(true);
+    setPublishError(null);
+    account
+      .ensureKeyPackage()
+      .catch((err) => {
+        if (active)
+          setPublishError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (active) setPublishing(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, account]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -48,21 +85,26 @@ export function MyQrDialog({
             <code className="min-w-0 flex-1 truncate text-xs">{npub}</code>
             <CopyButton text={npub} variant="ghost" size="icon" />
           </div>
-          {keyPackage && (
+          {keyPackage ? (
             <div className="w-full space-y-1">
               <p className="text-xs text-muted-foreground">
                 If relay discovery fails, copy this key package and paste it
-                into the host&apos;s invite dialog.
+                into the host&apos;s <strong>Invite</strong> dialog under{" "}
+                <strong>Paste a key package instead</strong>.
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 className="w-full"
-                onClick={() =>
-                  void navigator.clipboard.writeText(JSON.stringify(keyPackage))
-                }
+                onClick={async () => {
+                  await navigator.clipboard.writeText(
+                    JSON.stringify(keyPackage),
+                  );
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
               >
-                Copy key package
+                {copied ? "Copied" : "Copy key package"}
               </Button>
               <details className="w-full">
                 <summary className="cursor-pointer text-xs text-muted-foreground">
@@ -75,6 +117,28 @@ export function MyQrDialog({
                   className="mt-1 h-24 w-full rounded-md border bg-muted p-2 text-[10px]"
                 />
               </details>
+            </div>
+          ) : (
+            <div className="w-full space-y-2 rounded-md border p-3">
+              <p className="text-sm font-medium">No key package yet</p>
+              <p className="text-xs text-muted-foreground">
+                {publishing
+                  ? "Publishing your key package…"
+                  : "This device needs to publish a key package before a host can invite it."}
+              </p>
+              {publishError && (
+                <p className="text-xs text-destructive">{publishError}</p>
+              )}
+              {!publishing && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => void publish()}
+                >
+                  Publish key package
+                </Button>
+              )}
             </div>
           )}
         </div>

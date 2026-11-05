@@ -56,7 +56,7 @@ Copy-Item -Recurse -Force dist\* ..\jakedat.com\public\kimchi\
 Use three browser profiles (or three devices):
 
 1. Each profile opens the app and creates a local identity. The sign-in form creates the account on the three default relays.
-2. The host creates a group and invites the two guests. Discovery usually finds them by `npub`. If it does not, each guest opens **Show my invite QR → Copy key package**, and the host pastes it into **New group → Paste a key package**.
+2. The host creates a group and invites the guests. Discovery usually finds them by `npub`. If it does not, each guest opens **Show my invite QR → Copy key package**, and the host pastes it into **New group → Paste a key package**, or into **Invite → Paste a key package instead** for an existing group.
 3. Each guest opens the group and taps the Kimchi icon in the header.
 4. Fund each guest once: **Wallet → Add sats**, pay the 5,000-sat invoice, then **I paid — claim**. (Or paste a Minibits ecash token.)
 5. The host creates the tab. The host's own share is marked **Covered by host**; guests pay their shares.

@@ -62,7 +62,8 @@ export function AppLayout() {
   const account = useMarmotAccount();
   const notices = use$(() => account?.notices$, [account]);
   const packages = useKeyPackages();
-  const invites = useWatchedInvites().filter((entry) => entry.joinable);
+  const invites = useWatchedInvites();
+  const joinableInvites = invites.filter((entry) => entry.joinable);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -124,24 +125,26 @@ export function AppLayout() {
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto p-2">
-            {invites.length > 0 && (
-              <NavLink
-                to="/invites"
-                aria-label={`Invites, ${invites.length} unread`}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-2 px-2 py-2 text-sm",
-                    isActive ? "bg-accent" : "hover:bg-accent/50",
-                  )
-                }
-              >
-                <Inbox className="size-4" />
-                <span className="flex-1">Invites</span>
-                <Badge variant={invites.length ? "default" : "secondary"}>
-                  {invites.length}
+            <NavLink
+              to="/invites"
+              aria-label={`Invites, ${invites.length} pending`}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-2 px-2 py-2 text-sm",
+                  isActive ? "bg-accent" : "hover:bg-accent/50",
+                )
+              }
+            >
+              <Inbox className="size-4" />
+              <span className="flex-1">Invites</span>
+              {invites.length > 0 && (
+                <Badge
+                  variant={joinableInvites.length ? "default" : "secondary"}
+                >
+                  {joinableInvites.length || invites.length}
                 </Badge>
-              </NavLink>
-            )}
+              )}
+            </NavLink>
             <GroupList />
           </div>
 

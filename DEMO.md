@@ -7,7 +7,7 @@
 - Three browser profiles: **Minji** (host), **Alex**, **Priya**.
 - Each profile is signed in with its own identity on the three default relays.
 - Minji has created a group with Alex and Priya as founding members.
-  - If relay discovery is slow: each guest opens **Show my invite QR → Copy key package**; Minji pastes it into **New group → Paste a key package**.
+  - If relay discovery is slow: each guest opens **Show my invite QR → Copy key package**; Minji pastes it into **New group → Paste a key package**, or into **Invite → Paste a key package instead** if the group already exists.
 - Alex and Priya have opened the group and tapped the Kimchi icon once, so the tab page is warm.
 - Alex and Priya each have ~5,000 sats in the Kimchi wallet:
   - **Wallet → Add sats → pay the invoice → I paid — claim**, or paste a Minibits ecash token.
@@ -29,7 +29,7 @@
 
 ## Fallbacks
 
-- **Discovery fails:** use **Copy key package** → **Paste a key package**.
+- **Discovery fails:** use **Copy key package** → **Paste a key package instead**. The invite dialog now explains this when no package is found.
 - **Minibits is slow:** use the local `cdk-mintd` backup and label it; the UI takes any NUT-11 mint URL.
 - **A payer has no ecash:** show the **Add sats** invoice flow, or use a pre-funded profile.
 - **Stage Wi-Fi:** keep a pre-recorded 90-second video; switch to it without apologizing.

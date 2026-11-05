@@ -71,6 +71,7 @@ export function GroupChatPage() {
         <Button
           size="icon"
           variant="ghost"
+          aria-label="Invite to group"
           disabled={!canChat}
           onClick={() => setInvite(true)}
         >
