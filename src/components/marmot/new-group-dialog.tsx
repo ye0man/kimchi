@@ -27,6 +27,7 @@ import type { NostrEvent } from "applesauce-core/helpers/event";
 import { useMarmotAccount } from "@/hooks/use-marmot";
 import { createGroup } from "@/lib/marmot/actions/invites";
 import { describeInviteCandidate } from "@/lib/marmot/invitations";
+import { recordGroupMembers } from "@/lib/contacts";
 import type { InviteCandidate } from "@/lib/marmot/types";
 
 /** Create a solo group or include selected devices in its founding membership. */
@@ -148,6 +149,13 @@ export function NewGroupDialog({
         return;
       }
       created.warnings.forEach((warning) => account.notify(warning));
+      recordGroupMembers(
+        account.pubkey,
+        created.group.idStr,
+        candidates
+          .filter((candidate) => selected.has(candidate.id))
+          .map((candidate) => candidate.event.pubkey),
+      );
       setName("");
       setDescription("");
       setRelays("");
@@ -155,7 +163,11 @@ export function NewGroupDialog({
       setCandidates([]);
       setSelected(new Set());
       onOpenChange(false);
-      navigate(`/groups/${created.group.idStr}`);
+      navigate(
+        selected.size
+          ? `/groups/${created.group.idStr}`
+          : `/groups/${created.group.idStr}?share=1`,
+      );
     } finally {
       setBusy(false);
     }

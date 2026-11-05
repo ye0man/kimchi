@@ -9,6 +9,10 @@ import { GroupChatPage } from "@/pages/group-chat";
 import { GroupDebugPage } from "@/pages/group-debug";
 import { KimchiTabPage } from "@/pages/kimchi/kimchi-tab";
 import { InvitesPage } from "@/pages/invites";
+import { ContactsPage } from "@/pages/contacts";
+import { JoinPage } from "@/pages/join";
+import { AddPage } from "@/pages/add";
+import { WalletPage } from "@/pages/wallet";
 import { SettingsLayout } from "@/pages/settings/_layout";
 import { ProfileSettings } from "@/pages/settings/profile";
 import { RelaySettings } from "@/pages/settings/relays";
@@ -24,6 +28,8 @@ export function App() {
     <Routes>
       <Route path="/dev/cashu" element={<CashuHarness />} />
       <Route path="/signin" element={<SignInPage />} />
+      <Route path="/join/:code" element={<JoinPage />} />
+      <Route path="/add/:code" element={<AddPage />} />
       {account ? (
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/groups" replace />} />
@@ -31,6 +37,8 @@ export function App() {
           <Route path="/groups/:id" element={<GroupChatPage />} />
           <Route path="/groups/:id/kimchi" element={<KimchiTabPage />} />
           <Route path="/groups/:id/debug" element={<GroupDebugPage />} />
+          <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/wallet" element={<WalletPage />} />
           <Route path="/invites" element={<InvitesPage />} />
           <Route path="/settings" element={<SettingsLayout />}>
             <Route index element={<Navigate to="profile" replace />} />

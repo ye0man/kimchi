@@ -1,11 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { getGroupMembers } from "@internet-privacy/marmot-ts";
 import { use$ } from "applesauce-react/hooks";
 
 import { Jdenticon } from "@/components/jdenticon";
 import { JarMascot } from "@/components/kimchi/jar-mascot";
-import { useGroup, useMarmotAccount, useMarmotClient } from "@/hooks/use-marmot";
+import {
+  useGroup,
+  useMarmotAccount,
+  useMarmotClient,
+} from "@/hooks/use-marmot";
 import { lastPublishedEvent$ } from "@/lib/marmot/network";
 import {
   clearSecrets,
@@ -16,7 +20,6 @@ import {
   markRedeemed,
   MINIBITS_MINT,
   saveSecrets,
-  type Quote,
 } from "@/lib/kimchi/cashu";
 import { useLang } from "@/lib/kimchi/i18n";
 import {
@@ -29,11 +32,8 @@ import {
 } from "@/lib/kimchi/rate";
 import { sendKimchiMsg } from "@/lib/kimchi/rumors";
 import type { KimchiMsg, KimchiShare, KimchiTab } from "@/lib/kimchi/types";
-import {
-  useKimchiMessages,
-  useKimchiState,
-  useKimchiWallet,
-} from "@/lib/kimchi/use-kimchi";
+import { useKimchiMessages, useKimchiState } from "@/lib/kimchi/use-kimchi";
+import { useAccountWallet } from "@/lib/wallet/use-wallet";
 import "@/styles/kimchi.css";
 
 export function KimchiTabPage() {
@@ -53,13 +53,13 @@ export function KimchiTabPage() {
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
-  const [quote, setQuote] = useState<Quote | null>(null);
   const [tokenInput, setTokenInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const wallet = useKimchiWallet(tab?.mint ?? mint);
+  const wallet = useAccountWallet(account?.pubkey, tab?.mint ?? mint);
   const lastEvent = use$(lastPublishedEvent$);
   const me = account?.pubkey ?? "";
+  const attempted = useRef(new Set<string>());
 
   const members = useMemo(
     () => (group ? [...new Set(getGroupMembers(group.state))] : []),
@@ -78,11 +78,21 @@ export function KimchiTabPage() {
   const allPaid =
     openShares.length > 0 &&
     openShares.every((share) => paid.has(share.share_id));
-  const toCollect = openShares.reduce((sum, share) => sum + share.amount_sats, 0);
+  const toCollect = openShares.reduce(
+    (sum, share) => sum + share.amount_sats,
+    0,
+  );
   const collected = openShares
     .filter((share) => paid.has(share.share_id))
     .reduce((sum, share) => sum + share.amount_sats, 0);
-  const closed = Boolean(closing) || (group ? group.status !== "active" : false);
+  const closed =
+    Boolean(closing) || (group ? group.status !== "active" : false);
+  const walletLog = wallet.history
+    .slice(0, 8)
+    .map(
+      (tx) =>
+        `${new Date(tx.at).toLocaleTimeString()} ${tx.kind} ${tx.amount} sats`,
+    );
 
   async function sendLocal(msg: KimchiMsg) {
     if (!client || !group || !account) return;
@@ -103,7 +113,10 @@ export function KimchiTabPage() {
       const totalSats = fiatToSats(total, rate);
       const groupMembers = [...new Set(getGroupMembers(group.state))];
       if (!groupMembers.length) throw new Error("group has no members");
-      const orderedMembers = [me, ...groupMembers.filter((member) => member !== me)];
+      const orderedMembers = [
+        me,
+        ...groupMembers.filter((member) => member !== me),
+      ];
       const amounts = splitSats(totalSats, orderedMembers.length);
       const tabId = crypto.randomUUID();
       const secrets: Record<string, { privkey: string; pubkey: string }> = {};
@@ -239,8 +252,8 @@ export function KimchiTabPage() {
     if (!client || !group || !tab || !isHost) return;
     const question =
       reason === "settled"
-        ? "Settle and close this tab for everyone?"
-        : "Close this tab for everyone?";
+        ? "Settle this tab and close it for everyone? The chat stays open."
+        : "Close this tab for everyone? The chat stays open.";
     if (!window.confirm(question)) return;
     try {
       await sendLocal({
@@ -251,13 +264,7 @@ export function KimchiTabPage() {
       });
       await new Promise((resolve) => setTimeout(resolve, 1500));
       clearSecrets(tab.tab_id);
-      try {
-        await group.enableDisbanding();
-        await group.disband();
-      } catch (err) {
-        console.warn("kimchi: disband failed", err);
-      }
-      navigate("/groups");
+      navigate(`/groups/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -266,18 +273,17 @@ export function KimchiTabPage() {
   async function addSats() {
     setError(null);
     try {
-      setQuote(await wallet.fund(5_000));
+      await wallet.fund(5_000);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }
 
   async function claimSats() {
-    if (!quote) return;
+    if (!wallet.quote) return;
     setError(null);
     try {
-      await wallet.claim(quote.id, 5_000);
-      setQuote(null);
+      await wallet.claim(5_000);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -286,12 +292,24 @@ export function KimchiTabPage() {
   async function pasteToken() {
     setError(null);
     try {
-      await wallet.paste(tokenInput);
+      await wallet.receive(tokenInput);
       setTokenInput("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }
+
+  // The host should not need a second tap for each incoming payment.
+  useEffect(() => {
+    if (!isHost || closed || redeeming || !wallet.wallet) return;
+    const fresh = pending.filter(
+      (payment) => !attempted.current.has(payment.share_id),
+    );
+    if (fresh.length === 0) return;
+    fresh.forEach((payment) => attempted.current.add(payment.share_id));
+    void redeemPayments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, closed, pending, redeeming, wallet.wallet]);
 
   if (!id) return null;
   if (group === undefined) {
@@ -335,9 +353,9 @@ export function KimchiTabPage() {
           <button
             type="button"
             className="kimchi-button"
-            onClick={() => navigate("/groups")}
+            onClick={() => navigate(`/groups/${id}`)}
           >
-            {t("backToGroups")}
+            Back to chat
           </button>
         </section>
       )}
@@ -403,10 +421,16 @@ export function KimchiTabPage() {
             {formatKrw(total)} ≈{" "}
             {formatSats(fiatToSats(total, FALLBACK_KRW_PER_BTC))} {t("sats")} ·{" "}
             {formatSats(
-              splitSats(fiatToSats(total, FALLBACK_KRW_PER_BTC), Math.max(members.length, 1))[0] ??
-                0,
+              splitSats(
+                fiatToSats(total, FALLBACK_KRW_PER_BTC),
+                Math.max(members.length, 1),
+              )[0] ?? 0,
             )}{" "}
             {t("perPerson")}
+          </p>
+          <p className="kimchi-hint">
+            Tip: attach the receipt photo in the chat first, then start the tab
+            here.
           </p>
 
           <button
@@ -486,18 +510,18 @@ export function KimchiTabPage() {
               !myShare.covered &&
               !paid.has(myShare.share_id) &&
               !myPaymentPending && (
-              <button
-                type="button"
-                id="kimchi-pay"
-                className="kimchi-button"
-                onClick={() => void payShare()}
-                disabled={paying || wallet.busy || !wallet.wallet}
-              >
-                {paying
-                  ? t("paying")
-                  : `${t("payButton")} · ${formatSats(myShare.amount_sats)} ${t("sats")}`}
-              </button>
-            )}
+                <button
+                  type="button"
+                  id="kimchi-pay"
+                  className="kimchi-button"
+                  onClick={() => void payShare()}
+                  disabled={paying || wallet.busy || !wallet.wallet}
+                >
+                  {paying
+                    ? t("paying")
+                    : `${t("payButton")} · ${formatSats(myShare.amount_sats)} ${t("sats")}`}
+                </button>
+              )}
             {myShare &&
               !paid.has(myShare.share_id) &&
               wallet.balance < myShare.amount_sats && (
@@ -570,15 +594,17 @@ export function KimchiTabPage() {
             </button>
           </div>
 
-          {quote && (
+          {wallet.quote && (
             <div className="kimchi-quote">
               <p className="kimchi-hint">{t("invoice")}</p>
-              <textarea readOnly value={quote.invoice} />
+              <textarea readOnly value={wallet.quote.invoice} />
               <div className="kimchi-wallet-actions">
                 <button
                   type="button"
                   className="kimchi-ghost kimchi-small"
-                  onClick={() => void navigator.clipboard.writeText(quote.invoice)}
+                  onClick={() =>
+                    void navigator.clipboard.writeText(wallet.quote!.invoice)
+                  }
                 >
                   {t("copy")}
                 </button>
@@ -613,8 +639,8 @@ export function KimchiTabPage() {
             </button>
           </div>
 
-          {wallet.log.length > 0 && (
-            <pre className="kimchi-log">{wallet.log.join("\n")}</pre>
+          {walletLog.length > 0 && (
+            <pre className="kimchi-log">{walletLog.join("\n")}</pre>
           )}
         </div>
       </details>
@@ -640,7 +666,7 @@ export function KimchiTabPage() {
           )}
           <h3>{t("mintSees")}</h3>
           <pre className="kimchi-log">
-            {wallet.log.length ? wallet.log.join("\n") : "—"}
+            {walletLog.length ? walletLog.join("\n") : "—"}
           </pre>
           <p className="kimchi-hint">{t("privacyNote")}</p>
         </div>

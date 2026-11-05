@@ -5,9 +5,10 @@ import { kinds, type Rumor } from "applesauce-core/helpers/event";
 import { use$ } from "applesauce-react/hooks";
 
 import { useGroupStore } from "./use-marmot";
+import { KIMCHI_KIND } from "@/lib/kimchi/types";
 
 /**
- * Read oldest-first private chat rumors for a group.
+ * Read oldest-first private chat rumors for a group, including Kimchi events.
  * @param groupId - Group whose private store to observe.
  * @returns The loaded chat window, updated reactively.
  * @example const messages = useGroupMessages(groupId);
@@ -15,7 +16,10 @@ import { useGroupStore } from "./use-marmot";
 export function useGroupMessages(groupId: string | undefined): Rumor[] {
   const store = useGroupStore(groupId);
   const timeline = use$(
-    () => (store ? store.timeline({ kinds: [kinds.ChatMessage] }) : undefined),
+    () =>
+      store
+        ? store.timeline({ kinds: [kinds.ChatMessage, KIMCHI_KIND] })
+        : undefined,
     [store],
   );
   return useMemo(

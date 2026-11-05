@@ -1,4 +1,4 @@
-export function JarMascot({ full }: { full: boolean }) {
+export function JarMascot({ full = false }: { full?: boolean }) {
   return (
     <svg
       width="56"

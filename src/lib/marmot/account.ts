@@ -39,6 +39,10 @@ import {
   sendText,
 } from "@/lib/marmot/actions/messages";
 import {
+  joinRequestFilter,
+  processJoinRequest,
+} from "@/lib/marmot/join-requests";
+import {
   publishProfile,
   publishRelayLists,
   type IdentityPublisher,
@@ -204,6 +208,10 @@ export class MarmotAccount {
   }
 
   async #start(): Promise<void> {
+    // Restore local groups first so the UI can open a just-created group even
+    // when a fresh account's initial relay publications are slow.
+    await this.#restoreGroups();
+    if (this.#stopped) return;
     if (this.#fresh) {
       await this.saveRelayLists(
         this.outboxRelays$.value,
@@ -214,14 +222,13 @@ export class MarmotAccount {
         await this.saveProfile({ name: this.#initialProfileName });
     }
     if (this.#stopped) return;
-    await this.#restoreGroups();
-    if (this.#stopped) return;
     this.client.groups.on("unreadable", this.#onUnreadable);
     this.client.groups.on("updated", this.#onGroupsUpdated);
     this.#groupsConnection = this.client.groups.connectAll({
       fallbackRelays: this.relays,
     });
     this.#listenForInvites();
+    this.#listenForJoinRequests();
     try {
       await this.ensureKeyPackage();
     } catch (error) {
@@ -297,8 +304,48 @@ export class MarmotAccount {
     );
   }
 
-  // --- notices ---------------------------------------------------------------
+  /** Handle gift-wrapped kimchi join requests on the account's inbox relays. */
+  #listenForJoinRequests(): void {
+    if (typeof this.network.subscription !== "function") return;
+    this.#subscriptions.add(
+      combineLatest([this.inboxRelays$, this.outboxRelays$])
+        .pipe(
+          map(([inbox, outbox]) =>
+            relaySet(
+              inbox,
+              outbox,
+              this.client.groups.loaded.flatMap(
+                (group) => group.groupData?.relays ?? [],
+              ),
+            ),
+          ),
+          distinctUntilChanged((a, b) => a.join(",") === b.join(",")),
+          switchMap(
+            (relays) =>
+              new Observable<never>(() => {
+                const subscription = this.network
+                  .subscription(relays, joinRequestFilter(this.pubkey))
+                  .subscribe({
+                    next: (event) => {
+                      void processJoinRequest(this, event).catch((error) =>
+                        this.notifyError(error),
+                      );
+                    },
+                    error: (error) =>
+                      console.error(
+                        "[marmot] join request listen failed",
+                        error,
+                      ),
+                  });
+                return () => subscription.unsubscribe();
+              }),
+          ),
+        )
+        .subscribe(),
+    );
+  }
 
+  // --- notices ---------------------------------------------------------------
   /**
    * Show a warning or error to the user.
    * @param text - Message to show.

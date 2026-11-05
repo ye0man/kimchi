@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, GitFork, Soup, UserPlus, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
+import { ArrowLeft, GitFork, Link2, Soup, UserPlus, Users } from "lucide-react";
+import { getGroupMembers } from "@internet-privacy/marmot-ts";
 
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MessageList } from "@/components/chat/message-list";
@@ -10,19 +11,43 @@ import { ChatView } from "@/components/chat/chat-view";
 import { InviteDialog } from "@/components/marmot/invite-dialog";
 import { MembersDialog } from "@/components/marmot/members-dialog";
 import { GroupInfoDialog } from "@/components/marmot/group-info-dialog";
+import { ShareJoinDialog } from "@/components/marmot/share-join-dialog";
+import { recordGroupMembers } from "@/lib/contacts";
 import { retryFoundingWelcome } from "@/lib/marmot/actions/invites";
-import { useAction, useGroup } from "@/hooks/use-marmot";
+import { useAction, useGroup, useMarmotAccount } from "@/hooks/use-marmot";
 
 export function GroupChatPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const group = useGroup(id);
+  const account = useMarmotAccount();
   const retryWelcome = useAction((account, pubkey: string) =>
     retryFoundingWelcome(account.client, account.group(id!), pubkey),
   );
   const [invite, setInvite] = useState(false);
+  const [share, setShare] = useState(false);
   const [members, setMembers] = useState(false);
   const [info, setInfo] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("share") !== "1") return;
+    setShare(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("share");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!account || !group) return;
+    recordGroupMembers(
+      account.pubkey,
+      group.idStr,
+      [...new Set(getGroupMembers(group.state))].filter(
+        (pubkey) => pubkey !== account.pubkey,
+      ),
+    );
+  }, [account, group]);
 
   if (!id) return null;
 
@@ -68,6 +93,16 @@ export function GroupChatPage() {
             )}
           </div>
         </button>
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label="Share join link"
+          title="Share join link"
+          disabled={!canChat}
+          onClick={() => setShare(true)}
+        >
+          <Link2 className="size-4" />
+        </Button>
         <Button
           size="icon"
           variant="ghost"
@@ -154,6 +189,7 @@ export function GroupChatPage() {
       </div>
 
       <InviteDialog groupId={id} open={invite} onOpenChange={setInvite} />
+      <ShareJoinDialog groupId={id} open={share} onOpenChange={setShare} />
       <MembersDialog groupId={id} open={members} onOpenChange={setMembers} />
       <GroupInfoDialog groupId={id} open={info} onOpenChange={setInfo} />
     </div>

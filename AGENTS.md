@@ -202,7 +202,7 @@ body,
 #root {
   @apply h-full overflow-hidden;
 }
---radius: 0; /* all components are square — no rounded corners */
+--radius: 1.1rem; /* warm, rounded Kimchi surfaces */
 --sidebar-width: 400px; /* overridden in main.tsx (shadcn default is 16rem) */
 ```
 
@@ -212,8 +212,8 @@ must explicitly declare `overflow-y-auto` or `overflow-x-auto`. Nothing scrolls 
 **All full-height shells use `h-dvh`** (dynamic viewport height), never `h-screen`, so mobile
 browser chrome is accounted for.
 
-**Font**: `JetBrains Mono Variable` is `font-sans` — a monospace font used everywhere, including
-all body text and UI labels.
+**Font**: `font-sans` is a rounded humanist stack (system rounded / Trebuchet / Korean UI fonts).
+`JetBrains Mono Variable` is reserved for code, hashes, and ciphertext.
 
 ---
 
@@ -649,8 +649,8 @@ only where they serve a clear purpose, such as inputs and navigation separators.
 | `h-dvh` not `h-screen`         | All full-height shells use `h-dvh`. Mobile browser chrome shrinks `100vh`; `dvh` accounts for it.                                                                      |
 | Root is `overflow-hidden`      | `html/body/#root` has `overflow-hidden`. Every scrollable region must declare `overflow-y-auto` explicitly.                                                            |
 | `PageHeader` is desktop-only   | Returns `null` on mobile (`src/components/page-header.tsx:33`). Mobile pages must provide their own header.                                                            |
-| Zero border radius             | `--radius: 0` in `index.css`. All shadcn components are square — never add `rounded-*` to match system style.                                                          |
-| JetBrains Mono everywhere      | `--font-sans` is a monospace font. This is intentional — all UI text uses it.                                                                                          |
+| Rounded surfaces               | `--radius: 1.1rem` in `index.css`. Use the warm tokens and `kimchi-surface` for cards; avoid sharp-cornered panels.                                                     |
+| Rounded sans, mono for code    | `--font-sans` is a rounded humanist stack. `font-mono`/JetBrains Mono is only for keys, tokens, and ciphertext.                                                         |
 | Groups don't use `MobileShell` | The group detail layout is fully custom on mobile. It omits `MobileTopHeader` and `MobileBottomNav`.                                                                   |
 | `scroll=false` propagates      | When `DesktopShell scroll={false}`, the `SidebarInset` is `overflow-hidden`. Every group tab page must establish its own scroll box or content will be clipped.        |
 | Avoid `calc(100vh - Npx)`      | The media and timeline tabs use `calc(100vh - 118px)` — this is a code smell. Prefer `flex-1 overflow-y-auto` inside a `flex flex-col overflow-hidden` parent instead. |

@@ -6,8 +6,12 @@
 
 - Three browser profiles: **Minji** (host), **Alex**, **Priya**.
 - Each profile is signed in with its own identity on the three default relays.
-- Minji has created a group with Alex and Priya as founding members.
-  - If relay discovery is slow: each guest opens **Show my invite QR → Copy key package**; Minji pastes it into **New group → Paste a key package**, or into **Invite → Paste a key package instead** if the group already exists.
+- Minji has created a group and tapped **Share join link**. The link is in the
+  dinner group chat on any messaging app.
+  - Each guest taps the link and taps **Join the table**; Minji's app adds them
+    automatically.
+  - Fallback: each guest opens **Show my invite QR → Invite card** and Minji
+    scans it from **Contacts**, or pastes the card in **Contacts → Add**.
 - Alex and Priya have opened the group and tapped the Kimchi icon once, so the tab page is warm.
 - Alex and Priya each have ~5,000 sats in the Kimchi wallet:
   - **Wallet → Add sats → pay the invoice → I paid — claim**, or paste a Minibits ecash token.
@@ -24,14 +28,15 @@
 7. Open **What leaks**:
    - "The relay sees this: a kind 445 ciphertext blob."
    - "The mint sees this: an amount and a swap. No group, no names."
-8. Minji taps **Close tab**. The tab disappears; the group enters its closing state.
+8. Minji taps **Close tab**. The tab disappears; the encrypted chat stays for next time.
 9. "Kimchi. **Share the date, not your data.**"
 
 ## Fallbacks
 
-- **Discovery fails:** use **Copy key package** → **Paste a key package instead**. The invite dialog now explains this when no package is found.
+- **Discovery fails:** share the **Join link** again, or each guest shares their
+  **Invite card** from **Show my invite QR**; the host scans it in **Contacts**.
 - **Minibits is slow:** use the local `cdk-mintd` backup and label it; the UI takes any NUT-11 mint URL.
-- **A payer has no ecash:** show the **Add sats** invoice flow, or use a pre-funded profile.
+- **A payer has no ecash:** show the **Wallet → Add sats** invoice flow, or use a pre-funded profile.
 - **Stage Wi-Fi:** keep a pre-recorded 90-second video; switch to it without apologizing.
 - **Redeem fails:** the host can retry; the pending count stays until a `paid` message is sent.
 

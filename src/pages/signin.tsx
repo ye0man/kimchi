@@ -9,6 +9,7 @@ import {
   importAccount,
 } from "@/lib/accounts";
 import { DEFAULT_NEW_ACCOUNT_RELAYS } from "@/lib/settings";
+import { takePendingLink } from "@/lib/marmot/invite-links";
 import "@/styles/kimchi.css";
 
 export function SignInPage() {
@@ -21,12 +22,28 @@ export function SignInPage() {
   const [secret, setSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const afterAuth = () => {
+    const pending = takePendingLink();
+    if (pending) {
+      try {
+        const url = new URL(pending, window.location.origin);
+        const base = import.meta.env.BASE_URL || "/";
+        const path = url.pathname.startsWith(base)
+          ? url.pathname.slice(base.length - 1)
+          : url.pathname;
+        navigate(path.startsWith("/") ? path : `/${path}`);
+        return;
+      } catch {}
+    }
+    navigate("/groups");
+  };
+
   const connect = async () => {
     setConnecting(true);
     setError(null);
     try {
       await connectExtensionAccount();
-      navigate("/groups");
+      afterAuth();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -42,7 +59,7 @@ export function SignInPage() {
         name: name.trim() || undefined,
         relays: relays.length ? relays : undefined,
       });
-      navigate("/groups");
+      afterAuth();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -52,7 +69,7 @@ export function SignInPage() {
     setError(null);
     try {
       importAccount(secret.trim());
-      navigate("/groups");
+      afterAuth();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }

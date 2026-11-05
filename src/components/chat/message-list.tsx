@@ -9,7 +9,9 @@ import {
 } from "@/hooks/use-marmot";
 import { useGroupMessages } from "@/hooks/use-group-chat";
 import { getMessageOutbox } from "@/lib/marmot/message-outbox";
+import { KIMCHI_KIND } from "@/lib/kimchi/types";
 import { MessageItem } from "./message-item";
+import { KimchiEventCard } from "./kimchi-event-card";
 import type { ReplyTarget } from "./types";
 
 /**
@@ -81,17 +83,21 @@ export const MessageList = memo(function MessageList({
           No messages yet — say hello.
         </div>
       )}
-      {rows.map(({ key, message, delivery }) => (
-        <MessageItem
-          key={key}
-          groupId={groupId}
-          message={message}
-          mine={message.pubkey === me}
-          onReply={onReply}
-          readOnly={readOnly || (!!delivery && delivery.status !== "sent")}
-          delivery={delivery}
-        />
-      ))}
+      {rows.map(({ key, message, delivery }) =>
+        message.kind === KIMCHI_KIND ? (
+          <KimchiEventCard key={key} groupId={groupId} message={message} />
+        ) : (
+          <MessageItem
+            key={key}
+            groupId={groupId}
+            message={message}
+            mine={message.pubkey === me}
+            onReply={onReply}
+            readOnly={readOnly || (!!delivery && delivery.status !== "sent")}
+            delivery={delivery}
+          />
+        ),
+      )}
       <div ref={bottomRef} />
     </div>
   );

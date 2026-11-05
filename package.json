@@ -19,6 +19,7 @@
     "@libs/qrcode": "jsr:^3.0.1",
     "@noble/hashes": "^2.2.0",
     "@tabler/icons-react": "^3.44.0",
+    "@zxing/browser": "^0.2.1",
     "applesauce-accounts": "7.0.2",
     "applesauce-actions": "7.0.0",
     "applesauce-common": "7.0.0",

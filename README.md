@@ -26,7 +26,7 @@ Built for bitcoin++ Seoul, privacy edition. Forked from the `marmot-ts` web chat
 - **Payment:** the guest pays the request from their Cashu wallet. The resulting P2PK-locked proofs are sent back inside an encrypted `kimchi.payment` message.
 - **Redemption:** the host verifies the request, checks NUT-07 state, and redeems with the share private key.
 - **Mint:** Minibits by default (`https://mint.minibits.cash/Bitcoin`). Any NUT-11-capable mint works.
-- **Vanish:** `closing` message, then `enableDisbanding()` + `disband()`; local tab secrets are deleted. Relays may retain ciphertext, but the keys are gone.
+- **Close:** a `kimchi.closing` message closes the tab and local tab secrets are deleted. The encrypted group chat stays; an admin can disband it separately.
 
 ## Run
 
