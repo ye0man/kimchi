@@ -166,6 +166,12 @@ export async function disbandGroup(
   client: AppMarmotClient,
   group: AppGroup,
 ): Promise<void> {
+  // A previous delete already reached its terminal state: just purge the local
+  // tombstone so it disappears from the UI and storage.
+  if (group.status === "disbanded") {
+    await client.groups.destroy(group.idStr);
+    return;
+  }
   requireActiveGroup(group);
   requireAdmin(group, await client.signer.getPublicKey());
 
@@ -192,8 +198,14 @@ export async function disbandGroup(
   );
   switch (result.kind) {
     case "acknowledged":
-    case "pending":
+      // The terminal commit is published. Purge the local tombstone so the
+      // group disappears instead of lingering as a read-only, unnamed entry.
+      await client.groups.destroy(group.idStr);
       return;
+    case "pending":
+      throw new Error(
+        "Delete is queued but has not been published yet. Keep the app open, then try again.",
+      );
     case "failed":
       throw new Error(`The group could not be deleted (${result.reason}).`);
     case "rejected":

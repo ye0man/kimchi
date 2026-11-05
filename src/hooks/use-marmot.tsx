@@ -78,7 +78,10 @@ export function useGroups(): AppGroup[] | undefined {
   );
   const snapshots = useSyncExternalStore(subscribe, () => manager?.snapshot);
   return useMemo(
-    () => (restored ? manager?.loaded : undefined),
+    () =>
+      restored
+        ? manager?.loaded.filter((group) => group.status === "active")
+        : undefined,
     [manager, restored, snapshots],
   );
 }

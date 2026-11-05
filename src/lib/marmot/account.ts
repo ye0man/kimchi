@@ -259,9 +259,18 @@ export class MarmotAccount {
   async #restoreGroups(): Promise<void> {
     const groups = await this.client.groups.loadAll();
     if (this.#stopped) return;
-    this.groupsRestored$.next(true);
     for (const group of groups) {
       if (this.#stopped) return;
+      if (group.status === "disbanded") {
+        // Deleted groups are terminal tombstones. Purge them on load so they
+        // never reappear in the list with an empty name and read-only state.
+        try {
+          await this.client.groups.destroy(group.idStr);
+        } catch (error) {
+          this.notifyError(error);
+        }
+        continue;
+      }
       if (group.profileSupport.kind === "unsupported") {
         this.notify(
           `"${groupName(group)}" uses an older group profile. Recreate it to continue chatting.`,
@@ -272,6 +281,8 @@ export class MarmotAccount {
           .catch((error) => this.notifyError(error));
       }
     }
+    if (this.#stopped) return;
+    this.groupsRestored$.next(true);
   }
 
   /** Re-subscribe to gift-wrapped invites whenever either relay list changes. */
