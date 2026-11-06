@@ -687,6 +687,26 @@ export function KimchiTabPage() {
           <pre className="kimchi-log">
             {walletLog.length ? walletLog.join("\n") : "—"}
           </pre>
+          <h3>Under the hood</h3>
+          <p className="kimchi-hint">
+            <strong>Marmot / MLS</strong> — the group is an MLS group over
+            Nostr. Chat and tab events are application messages inside the same
+            encrypted group.
+          </p>
+          <p className="kimchi-hint">
+            <strong>Nostr</strong> — relays route <code>kind 445</code>{" "}
+            ciphertext and see the group id, sender pubkey, timing, and size.
+          </p>
+          <p className="kimchi-hint">
+            <strong>Cashu</strong> — each share uses a fresh NUT-11 P2PK key and
+            a NUT-18 request. The host checks NUT-07 proof states before
+            redeeming. This mint:{" "}
+            {caps
+              ? `${caps.p2pk ? "NUT-11 ✓" : "NUT-11 missing"} · ${
+                  caps.proofState ? "NUT-07 ✓" : "NUT-07 missing"
+                }`
+              : "checking…"}
+          </p>
           <p className="kimchi-hint">{t("privacyNote")}</p>
         </div>
       </details>
